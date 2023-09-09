@@ -11,12 +11,14 @@ import org.bukkit.Material
 import org.bukkit.Sound
 import org.bukkit.attribute.Attribute
 import org.bukkit.block.Block
+import org.bukkit.entity.EntityType
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.block.BlockPlaceEvent
 import org.bukkit.event.entity.EntityDamageEvent
+import org.bukkit.event.entity.EntityDeathEvent
 import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.inventory.ItemStack
 import org.bukkit.plugin.java.JavaPlugin
@@ -48,6 +50,14 @@ class Faraway : JavaPlugin(), Listener {
                     player.playSound(player.location, Sound.BLOCK_END_PORTAL_SPAWN, 0.7f, 1.3f)
                 }
             }
+        }
+    }
+
+    @EventHandler
+    fun onDeathEntity(event: EntityDeathEvent) {
+        if(event.entity.type == EntityType.ENDER_DRAGON) {
+            config.set("isDragonDead", true)
+            saveConfig()
         }
     }
 
@@ -92,14 +102,19 @@ class Faraway : JavaPlugin(), Listener {
                     item = conduitItem
                     onClick { clickEvent ->
                         if (clickEvent.isLeftClick) {
-                            if(config.getBoolean("${clickEvent.whoClicked.name} get Conduit")) {
-                                clickEvent.whoClicked.sendMessage(Component.text("더 이상 전달체를 획득 할 수 없습니다!").color(TextColor.color(150,0,0)))
-                                event.player.playSound(event.player.location, Sound.BLOCK_ANVIL_PLACE, 0.5f, 1.1f)
+                            if(config.getBoolean("isDragonDead")) {
+                                if(config.getBoolean("${clickEvent.whoClicked.name} get Conduit")) {
+                                    clickEvent.whoClicked.sendMessage(Component.text("더 이상 전달체를 획득 할 수 없습니다!").color(TextColor.color(150,0,0)))
+                                    event.player.playSound(event.player.location, Sound.BLOCK_ANVIL_PLACE, 0.5f, 1.1f)
+                                }
+                                else {
+                                    clickEvent.whoClicked.inventory.setItemInMainHand(ItemStack(Material.CONDUIT))
+                                    config.set("${clickEvent.whoClicked.name} get Conduit", true)
+                                    saveConfig()
+                                }
                             }
                             else {
-                                clickEvent.whoClicked.inventory.setItemInMainHand(ItemStack(Material.CONDUIT))
-                                config.set("${clickEvent.whoClicked.name} get Conduit", true)
-                                saveConfig()
+                                clickEvent.whoClicked.sendMessage(Component.text("드래곤이 처치되었을때 사용 가능한 메뉴입니다!").color(TextColor.color(150,0,0)))
                             }
                             event.player.closeInventory()
                         }
@@ -111,48 +126,52 @@ class Faraway : JavaPlugin(), Listener {
                     item = compassItem
                     onClick { clickEvent ->
                         if(clickEvent.isLeftClick) {
-                            if(clickEvent.whoClicked.inventory.itemInOffHand.type == Material.EMERALD) {
-                                val amount = clickEvent.whoClicked.inventory.itemInOffHand.amount
+                            if(config.getBoolean("isDragonDead")) {
+                                if(clickEvent.whoClicked.inventory.itemInOffHand.type == Material.EMERALD) {
+                                    val amount = clickEvent.whoClicked.inventory.itemInOffHand.amount
 
-                                var isExist = false
-                                var playerBlock : Block = clickEvent.whoClicked.location.block
-                                val presentBlock : Block = clickEvent.whoClicked.location.block
-                                var detectBlockLocX = presentBlock.x
-                                var detectBlockLocZ = presentBlock.z
-                                var detectBlockLocY : Int
+                                    var isExist = false
+                                    var playerBlock : Block = clickEvent.whoClicked.location.block
+                                    val presentBlock : Block = clickEvent.whoClicked.location.block
+                                    var detectBlockLocX = presentBlock.x
+                                    var detectBlockLocZ = presentBlock.z
+                                    var detectBlockLocY : Int
 
-                                for (player in Bukkit.getServer().onlinePlayers) {
-                                    for (k : Int in -63..320) {
-                                        detectBlockLocY = k
-                                        for(i : Int in amount * -1..amount) {
-                                            detectBlockLocX = presentBlock.x
-                                            detectBlockLocX += i
-                                            for (j : Int in amount * -1.. amount) {
-                                                detectBlockLocZ = presentBlock.z
-                                                detectBlockLocZ += j
-                                                if(detectBlockLocX == config.getLocation(player.name)?.x?.toInt() && detectBlockLocZ == config.getLocation(player.name)?.z?.toInt()
-                                                    && detectBlockLocY == config.getLocation(player.name)?.y?.toInt()) {
-                                                    clickEvent.whoClicked.sendMessage(Component.text("주변 ${amount}칸에 ${player.name}의 전달체가 있습니다!").color(TextColor.color(0,150,230)))
-                                                    isExist = true
-                                                    player.playSound(player.location, Sound.ENTITY_BLAZE_SHOOT, 0.7f, 1.3f)
-                                                    player.inventory.setItemInOffHand(ItemStack(Material.AIR))
+                                    for (player in Bukkit.getServer().onlinePlayers) {
+                                        for (k : Int in -63..320) {
+                                            detectBlockLocY = k
+                                            for(i : Int in amount * -1..amount) {
+                                                detectBlockLocX = presentBlock.x
+                                                detectBlockLocX += i
+                                                for (j : Int in amount * -1.. amount) {
+                                                    detectBlockLocZ = presentBlock.z
+                                                    detectBlockLocZ += j
+                                                    if(detectBlockLocX == config.getLocation(player.name)?.x?.toInt() && detectBlockLocZ == config.getLocation(player.name)?.z?.toInt()
+                                                        && detectBlockLocY == config.getLocation(player.name)?.y?.toInt()) {
+                                                        clickEvent.whoClicked.sendMessage(Component.text("주변 ${amount}칸에 ${player.name}의 전달체가 있습니다!").color(TextColor.color(0,150,230)))
+                                                        isExist = true
+                                                        player.playSound(player.location, Sound.ENTITY_BLAZE_SHOOT, 0.7f, 1.3f)
+                                                        player.inventory.setItemInOffHand(ItemStack(Material.AIR))
+                                                    }
                                                 }
                                             }
                                         }
                                     }
-                                    event.player.closeInventory()
+                                    if (!isExist) {
+                                        clickEvent.whoClicked.sendMessage(Component.text("주변 ${amount}칸에 전달체가 없습니다!").color(TextColor.color(150,0,0)))
+                                        event.player.playSound(event.player.location, Sound.BLOCK_ANVIL_PLACE, 0.5f, 1.1f)
+                                        event.player.inventory.setItemInOffHand(ItemStack(Material.AIR))
+                                    }
                                 }
-                                if (!isExist) {
-                                    clickEvent.whoClicked.sendMessage(Component.text("주변 ${amount}칸에 전달체가 없습니다!").color(TextColor.color(150,0,0)))
+                                else {
+                                    clickEvent.whoClicked.sendMessage(Component.text("에메랄드가 없습니다!").color(TextColor.color(150,0,0)))
                                     event.player.playSound(event.player.location, Sound.BLOCK_ANVIL_PLACE, 0.5f, 1.1f)
-                                    event.player.inventory.setItemInOffHand(ItemStack(Material.AIR))
                                 }
                             }
                             else {
-                                clickEvent.whoClicked.sendMessage(Component.text("에메랄드가 없습니다!").color(TextColor.color(150,0,0)))
-                                event.player.playSound(event.player.location, Sound.BLOCK_ANVIL_PLACE, 0.5f, 1.1f)
-                                event.player.closeInventory()
+                                clickEvent.whoClicked.sendMessage(Component.text("드래곤이 처치되었을때 사용 가능한 메뉴입니다!").color(TextColor.color(150,0,0)))
                             }
+                            event.player.closeInventory()
                         }
                     }
                 }
@@ -350,12 +369,12 @@ class Faraway : JavaPlugin(), Listener {
                                                 }
                                             }
 
-                                            if(emeraldAmount < 12) {
+                                            if(emeraldAmount < 24) {
                                                 if(config.getInt("${clickEvent2.whoClicked.name} attack_speed") == 10) {
                                                     clickEvent2.whoClicked.sendMessage(Component.text("더 이상 업그레이드 할 수 없습니다!").color(TextColor.color(150,0,0)))
                                                 }
                                                 else {
-                                                    clickEvent2.whoClicked.sendMessage(Component.text("에메랄드가 부족합니다! 필요량 : 12개").color(TextColor.color(150,0,0)))
+                                                    clickEvent2.whoClicked.sendMessage(Component.text("에메랄드가 부족합니다! 필요량 : 24").color(TextColor.color(150,0,0)))
                                                 }
                                             }
                                             else {
@@ -394,16 +413,16 @@ class Faraway : JavaPlugin(), Listener {
 
                                                     //에메랄드 제거
 
-                                                    var lastAmount = 12
+                                                    var lastAmount = 24
                                                     for (emerald in clickEvent2.whoClicked.inventory.contents) {
                                                         if (emerald != null) {
                                                             if(emerald.type == Material.EMERALD) {
-                                                                if(emerald.amount < 12) {
+                                                                if(emerald.amount < 24) {
                                                                     lastAmount -= emerald.amount
                                                                     emerald.amount = 0
                                                                 }
                                                                 else {
-                                                                    emerald.amount -= 12
+                                                                    emerald.amount -= 24
                                                                     break
                                                                 }
 
@@ -452,16 +471,16 @@ class Faraway : JavaPlugin(), Listener {
                                                     )!!
 
                                                     //에메랄드 제거
-                                                    var lastAmount = 12
+                                                    var lastAmount = 24
                                                     for (emerald in clickEvent2.whoClicked.inventory.contents) {
                                                         if (emerald != null) {
                                                             if(emerald.type == Material.EMERALD) {
-                                                                if(emerald.amount < 12) {
+                                                                if(emerald.amount < 24) {
                                                                     lastAmount -= emerald.amount
                                                                     emerald.amount = 0
                                                                 }
                                                                 else {
-                                                                    emerald.amount -= 12
+                                                                    emerald.amount -= 24
                                                                     break
                                                                 }
 
@@ -507,12 +526,12 @@ class Faraway : JavaPlugin(), Listener {
                                                 }
                                             }
 
-                                            if(emeraldAmount < 12) {
+                                            if(emeraldAmount < 24) {
                                                 if(config.getInt("${clickEvent2.whoClicked.name} attack_damage") == 10) {
                                                     clickEvent2.whoClicked.sendMessage(Component.text("더 이상 업그레이드 할 수 없습니다!").color(TextColor.color(150,0,0)))
                                                 }
                                                 else {
-                                                    clickEvent2.whoClicked.sendMessage(Component.text("에메랄드가 부족합니다! 필요량 : 12개").color(TextColor.color(150,0,0)))
+                                                    clickEvent2.whoClicked.sendMessage(Component.text("에메랄드가 부족합니다! 필요량 : 24").color(TextColor.color(150,0,0)))
                                                 }
                                             }
 
@@ -548,16 +567,16 @@ class Faraway : JavaPlugin(), Listener {
                                                     )!!
                                                     item!!.lore(axeLore)
 
-                                                    var lastAmount = 12
+                                                    var lastAmount = 24
                                                     for (emerald in clickEvent2.whoClicked.inventory.contents) {
                                                         if (emerald != null) {
                                                             if(emerald.type == Material.EMERALD) {
-                                                                if(emerald.amount < 12) {
+                                                                if(emerald.amount < 24) {
                                                                     lastAmount -= emerald.amount
                                                                     emerald.amount = 0
                                                                 }
                                                                 else {
-                                                                    emerald.amount -= 12
+                                                                    emerald.amount -= 24
                                                                     break
                                                                 }
 
@@ -603,16 +622,16 @@ class Faraway : JavaPlugin(), Listener {
                                                         1
                                                     )!!
 
-                                                    var lastAmount = 12
+                                                    var lastAmount = 24
                                                     for (emerald in clickEvent2.whoClicked.inventory.contents) {
                                                         if (emerald != null) {
                                                             if(emerald.type == Material.EMERALD) {
-                                                                if(emerald.amount < 12) {
+                                                                if(emerald.amount < 24) {
                                                                     lastAmount -= emerald.amount
                                                                     emerald.amount = 0
                                                                 }
                                                                 else {
-                                                                    emerald.amount -= 12
+                                                                    emerald.amount -= 24
                                                                     break
                                                                 }
 
@@ -658,12 +677,12 @@ class Faraway : JavaPlugin(), Listener {
                                             }
                                         }
 
-                                        if(emeraldAmount < 12) {
+                                        if(emeraldAmount < 24) {
                                             if(config.getInt("${clickEvent2.whoClicked.name} max_health") == 10) {
                                                 clickEvent2.whoClicked.sendMessage(Component.text("더 이상 업그레이드 할 수 없습니다!").color(TextColor.color(150,0,0)))
                                             }
                                             else {
-                                                clickEvent2.whoClicked.sendMessage(Component.text("에메랄드가 부족합니다! 필요량 : 12개").color(TextColor.color(150,0,0)))
+                                                clickEvent2.whoClicked.sendMessage(Component.text("에메랄드가 부족합니다! 필요량 : 24").color(TextColor.color(150,0,0)))
                                             }
                                         }
                                         else {
@@ -699,16 +718,16 @@ class Faraway : JavaPlugin(), Listener {
                                                     )!!
                                                     item!!.lore(totemLore)
 
-                                                    var lastAmount = 12
+                                                    var lastAmount = 24
                                                     for (emerald in clickEvent2.whoClicked.inventory.contents) {
                                                         if (emerald != null) {
                                                             if(emerald.type == Material.EMERALD) {
-                                                                if(emerald.amount < 12) {
+                                                                if(emerald.amount < 24) {
                                                                     lastAmount -= emerald.amount
                                                                     emerald.amount = 0
                                                                 }
                                                                 else {
-                                                                    emerald.amount -= 12
+                                                                    emerald.amount -= 24
                                                                     break
                                                                 }
 
@@ -755,16 +774,16 @@ class Faraway : JavaPlugin(), Listener {
                                                         4
                                                     )!!
 
-                                                    var lastAmount = 12
+                                                    var lastAmount = 24
                                                     for (emerald in clickEvent2.whoClicked.inventory.contents) {
                                                         if (emerald != null) {
                                                             if(emerald.type == Material.EMERALD) {
-                                                                if(emerald.amount < 12) {
+                                                                if(emerald.amount < 24) {
                                                                     lastAmount -= emerald.amount
                                                                     emerald.amount = 0
                                                                 }
                                                                 else {
-                                                                    emerald.amount -= 12
+                                                                    emerald.amount -= 24
                                                                     break
                                                                 }
 
@@ -806,12 +825,12 @@ class Faraway : JavaPlugin(), Listener {
                                             }
                                         }
 
-                                        if(emeraldAmount < 12) {
+                                        if(emeraldAmount < 24) {
                                             if(config.getInt("${clickEvent2.whoClicked.name} defend") == 10) {
                                                 clickEvent2.whoClicked.sendMessage(Component.text("더 이상 업그레이드 할 수 없습니다!").color(TextColor.color(150,0,0)))
                                             }
                                             else {
-                                                clickEvent2.whoClicked.sendMessage(Component.text("에메랄드가 부족합니다! 필요량 : 12개").color(TextColor.color(150,0,0)))
+                                                clickEvent2.whoClicked.sendMessage(Component.text("에메랄드가 부족합니다! 필요량 : 24").color(TextColor.color(150,0,0)))
                                             }
                                         }
                                         else {
@@ -843,16 +862,16 @@ class Faraway : JavaPlugin(), Listener {
                                                             chestLore.add(Component.text("★★★★★★★★★★").color(TextColor.color(0,255,179)))}
                                                     }
                                                     item!!.lore(chestLore)
-                                                    var lastAmount = 12
+                                                    var lastAmount = 24
                                                     for (emerald in clickEvent2.whoClicked.inventory.contents) {
                                                         if (emerald != null) {
                                                             if(emerald.type == Material.EMERALD) {
-                                                                if(emerald.amount < 12) {
+                                                                if(emerald.amount < 24) {
                                                                     lastAmount -= emerald.amount
                                                                     emerald.amount = 0
                                                                 }
                                                                 else {
-                                                                    emerald.amount -= 12
+                                                                    emerald.amount -= 24
                                                                     break
                                                                 }
 
@@ -894,16 +913,16 @@ class Faraway : JavaPlugin(), Listener {
                                                             chestLore.add(Component.text("★★★★★★★★★★").color(TextColor.color(0,255,179)))}
                                                     }
                                                     item!!.lore(chestLore)
-                                                    var lastAmount = 12
+                                                    var lastAmount = 24
                                                     for (emerald in clickEvent2.whoClicked.inventory.contents) {
                                                         if (emerald != null) {
                                                             if(emerald.type == Material.EMERALD) {
-                                                                if(emerald.amount < 12) {
+                                                                if(emerald.amount < 24) {
                                                                     lastAmount -= emerald.amount
                                                                     emerald.amount = 0
                                                                 }
                                                                 else {
-                                                                    emerald.amount -= 12
+                                                                    emerald.amount -= 24
                                                                     break
                                                                 }
 
@@ -946,12 +965,12 @@ class Faraway : JavaPlugin(), Listener {
                                             }
                                         }
 
-                                        if(emeraldAmount < 12) {
+                                        if(emeraldAmount < 24) {
                                             if(config.getInt("${clickEvent2.whoClicked.name} movement_speed") == 10) {
                                                 clickEvent2.whoClicked.sendMessage(Component.text("더 이상 업그레이드 할 수 없습니다!").color(TextColor.color(150,0,0)))
                                             }
                                             else {
-                                                clickEvent2.whoClicked.sendMessage(Component.text("에메랄드가 부족합니다! 필요량 : 12개").color(TextColor.color(150,0,0)))
+                                                clickEvent2.whoClicked.sendMessage(Component.text("에메랄드가 부족합니다! 필요량 : 24").color(TextColor.color(150,0,0)))
                                             }
                                         }
                                         else {
@@ -986,16 +1005,16 @@ class Faraway : JavaPlugin(), Listener {
                                                         0.015
                                                     )!!
                                                     item!!.lore(bootsLore)
-                                                    var lastAmount = 12
+                                                    var lastAmount = 24
                                                     for (emerald in clickEvent2.whoClicked.inventory.contents) {
                                                         if (emerald != null) {
                                                             if(emerald.type == Material.EMERALD) {
-                                                                if(emerald.amount < 12) {
+                                                                if(emerald.amount < 24) {
                                                                     lastAmount -= emerald.amount
                                                                     emerald.amount = 0
                                                                 }
                                                                 else {
-                                                                    emerald.amount -= 12
+                                                                    emerald.amount -= 24
                                                                     break
                                                                 }
 
@@ -1041,16 +1060,16 @@ class Faraway : JavaPlugin(), Listener {
                                                         0.015
                                                     )!!
 
-                                                    var lastAmount = 12
+                                                    var lastAmount = 24
                                                     for (emerald in clickEvent2.whoClicked.inventory.contents) {
                                                         if (emerald != null) {
                                                             if(emerald.type == Material.EMERALD) {
-                                                                if(emerald.amount < 12) {
+                                                                if(emerald.amount < 24) {
                                                                     lastAmount -= emerald.amount
                                                                     emerald.amount = 0
                                                                 }
                                                                 else {
-                                                                    emerald.amount -= 12
+                                                                    emerald.amount -= 24
                                                                     break
                                                                 }
 

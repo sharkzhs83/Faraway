@@ -21,7 +21,6 @@ class UpgradedEntity : Listener {
         val range = 1..5
         val num = range.random()
 
-
         if(num == 1) {
             event.drops.add(ItemStack(Material.EMERALD))
         }
