@@ -1,13 +1,18 @@
 package io.github.sharkzhs83.faraway.upgradedEntity
 
 import com.destroystokyo.paper.event.entity.EnderDragonFlameEvent
+import io.github.monun.tap.task.Ticker
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.TextColor
 import org.bukkit.Bukkit
 import org.bukkit.Material
+import org.bukkit.attribute.Attribute
 import org.bukkit.entity.*
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.entity.*
+import org.bukkit.event.player.PlayerChangedWorldEvent
+import org.bukkit.event.player.PlayerPortalEvent
 import org.bukkit.inventory.ItemStack
 import org.bukkit.potion.PotionEffect
 import org.bukkit.potion.PotionEffectType
@@ -18,11 +23,23 @@ class UpgradedEntity : Listener {
 
     @EventHandler
     fun onKillEntity(event: EntityDeathEvent) {
-        val range = 1..5
-        val num = range.random()
+        if(event.entity.type != EntityType.PLAYER) {
+            val range = 1..5
+            val num = range.random()
 
-        if(num == 1) {
-            event.drops.add(ItemStack(Material.EMERALD))
+            if(num == 1) {
+                event.drops.add(ItemStack(Material.EMERALD))
+            }
+        }
+
+        if(event.entityType == EntityType.ENDER_DRAGON) {
+            Bukkit.getPluginManager().getPlugin("Faraway")?.config?.set("isDragonDead", true)
+            Bukkit.getPluginManager().getPlugin("Faraway")?.saveConfig()
+            val item = ItemStack(Material.NETHER_STAR)
+            val meta = item.itemMeta
+            meta.displayName(Component.text("드래곤의 별").color(TextColor.color(0,150,150)))
+            item.itemMeta = meta
+            event.drops.add(item)
         }
     }
 
@@ -94,78 +111,256 @@ class UpgradedEntity : Listener {
 
     //드래곤
     @EventHandler
-    fun onDragonChangePhase(event: EnderDragonChangePhaseEvent) {
-        if(event.newPhase.name == "SEARCH_FOR_BREATH_ATTACK_TARGET") {
-            for (player in event.entity.world.players) {
+    fun onPlayerEnterEnd(event: PlayerPortalEvent) {
 
-                if(player.world.name == "world_the_end") {
-                    val fireball = player.world.spawnEntity(player.location.add(0.0, 10.0, 0.0), EntityType.FIREBALL)
-                    fireball.velocity.zero()
-                    fireball.velocity = Vector(0,-2, 0)
+        if(Bukkit.getPluginManager().getPlugin("Faraway")?.config?.getBoolean("isDragonDead")?.equals(null) == true ||
+            Bukkit.getPluginManager().getPlugin("Faraway")?.config?.getBoolean("isDragonDead") != true) {
 
-                    val scheduler : BukkitScheduler = Bukkit.getScheduler()
+            val scheduler = Bukkit.getScheduler()
 
-                    Bukkit.getPluginManager().getPlugin("Faraway")?.let { scheduler.scheduleSyncDelayedTask(it, {val fireball = player.world.spawnEntity(player.location.add(0.0, 10.0, 0.0), EntityType.FIREBALL)
-                        fireball.velocity = Vector(0,-2, 0)}, 20L) }
+            Bukkit.getPluginManager().getPlugin("Faraway")?.let {
+                scheduler.scheduleSyncRepeatingTask(it, {
 
-                    Bukkit.getPluginManager().getPlugin("Faraway")?.let { scheduler.scheduleSyncDelayedTask(it, {val fireball = player.world.spawnEntity(player.location.add(0.0, 10.0, 0.0), EntityType.FIREBALL)
-                        fireball.velocity.zero()
-                        fireball.velocity = Vector(0,-2, 0)}, 40L) }
+                    if(Bukkit.getPluginManager().getPlugin("Faraway")?.config?.getBoolean("isDragonDead") == true) {
+                        Bukkit.getPluginManager().getPlugin("Faraway")?.let { it1 -> scheduler.cancelTasks(it1) }
+                    }
 
-                    Bukkit.getPluginManager().getPlugin("Faraway")?.let { scheduler.scheduleSyncDelayedTask(it, {val dragonFireball = player.world.spawnEntity(player.location.add(0.0, 10.0, 0.0), EntityType.DRAGON_FIREBALL)
-                        dragonFireball.velocity.zero()
-                        dragonFireball.velocity = Vector(0,-2, 0)}, 60L) }
-                }
+                    val range = 1..5
+                    val num = range.random()
+
+                    if(num == 1) {
+                        for (player in Bukkit.getOnlinePlayers()) {
+
+                            if(player.location.world.name == "world_the_end") {
+                                val fireball = player.world.spawnEntity(player.location.add(0.0,15.0,0.0), EntityType.FIREBALL)
+                                fireball.velocity.zero()
+                                fireball.velocity = Vector(0,-2,0)
+
+                                Bukkit.getPluginManager().getPlugin("Faraway")?.let {
+                                    scheduler.scheduleSyncDelayedTask(it, {
+                                        val fireball = player.world.spawnEntity(player.location.add(0.0,15.0,0.0), EntityType.FIREBALL)
+                                        fireball.velocity.zero()
+                                        fireball.velocity = Vector(0,-2,0)
+                                    },10L)
+                                }
+
+                                Bukkit.getPluginManager().getPlugin("Faraway")?.let {
+                                    scheduler.scheduleSyncDelayedTask(it, {
+                                        val fireball = player.world.spawnEntity(player.location.add(0.0,15.0,0.0), EntityType.FIREBALL)
+                                        fireball.velocity.zero()
+                                        fireball.velocity = Vector(0,-2,0)
+                                    },20L)
+                                }
+
+                                Bukkit.getPluginManager().getPlugin("Faraway")?.let {
+                                    scheduler.scheduleSyncDelayedTask(it, {
+                                        val dragonFireball = player.world.spawnEntity(player.location.add(0.0,15.0,0.0), EntityType.DRAGON_FIREBALL)
+                                        dragonFireball.velocity.zero()
+                                        dragonFireball.velocity = Vector(0,-2,0)
+                                    },30L)
+                                }
+                            }
+                        }
+                    }
+
+                    else if(num == 2) {
+                        for (player in Bukkit.getOnlinePlayers()) {
+                            if(player.location.world.name == "world_the_end") {
+                                player.world.spawnEntity(player.location.add(0.0,5.0,0.0), EntityType.WITCH)
+                                player.world.spawnEntity(player.location.add(0.0,5.0,0.0), EntityType.WITCH)
+                            }
+                        }
+                    }
+
+                    else if(num == 3) {
+                        for (player in Bukkit.getOnlinePlayers()) {
+                            if(player.location.world.name == "world_the_end") {
+                                player.world.spawnEntity(player.location.add(0.0,5.0,0.0), EntityType.SKELETON)
+                                player.world.spawnEntity(player.location.add(0.0,5.0,0.0), EntityType.SKELETON)
+                                player.world.spawnEntity(player.location.add(0.0,5.0,0.0), EntityType.SKELETON)
+                            }
+                        }
+                    }
+
+                    else if(num == 4) {
+                        for (player in Bukkit.getOnlinePlayers()) {
+
+                            if(player.location.world.name == "world_the_end") {
+                                val dragonFireball = player.world.spawnEntity(player.location.add(0.0,15.0,0.0), EntityType.DRAGON_FIREBALL)
+                                dragonFireball.velocity.zero()
+                                dragonFireball.velocity = Vector(0,-2,0)
+
+                                Bukkit.getPluginManager().getPlugin("Faraway")?.let {
+                                    scheduler.scheduleSyncDelayedTask(it, {
+                                        val dragonFireball = player.world.spawnEntity(player.location.add(0.0,15.0,0.0), EntityType.DRAGON_FIREBALL)
+                                        dragonFireball.velocity.zero()
+                                        dragonFireball.velocity = Vector(0,-2,0)
+                                    },20L)
+                                }
+
+                                Bukkit.getPluginManager().getPlugin("Faraway")?.let {
+                                    scheduler.scheduleSyncDelayedTask(it, {
+                                        val dragonFireball = player.world.spawnEntity(player.location.add(0.0,15.0,0.0), EntityType.DRAGON_FIREBALL)
+                                        dragonFireball.velocity.zero()
+                                        dragonFireball.velocity = Vector(0,-2,0)
+                                    },40L)
+                                }
+
+                                Bukkit.getPluginManager().getPlugin("Faraway")?.let {
+                                    scheduler.scheduleSyncDelayedTask(it, {
+                                        val dragonFireball = player.world.spawnEntity(player.location.add(0.0,15.0,0.0), EntityType.DRAGON_FIREBALL)
+                                        dragonFireball.velocity.zero()
+                                        dragonFireball.velocity = Vector(0,-2,0)
+                                    },60L)
+                                }
+                            }
+                        }
+                    }
+
+                    else if(num == 5) {
+                        for (player in Bukkit.getOnlinePlayers()) {
+                            if(player.location.world.name == "world_the_end") {
+                                player.world.spawnEntity(player.location.add(0.0,5.0,0.0), EntityType.WITHER_SKELETON)
+                                player.world.spawnEntity(player.location.add(0.0,5.0,0.0), EntityType.WITHER_SKELETON)
+                                player.world.spawnEntity(player.location.add(0.0,5.0,0.0), EntityType.WITHER_SKELETON)
+                            }
+                        }
+                    }
+
+                }, 10L, 200L)
             }
-        }
-        else if(event.newPhase.name == "FLY_TO_PORTAL") {
-            for (player in event.entity.world.players) {
-                if(player.world.name == "world_the_end") {
-                    val witch = player.world.spawnEntity(player.location.add(0.0, 10.0, 0.0), EntityType.WITCH)
-                    witch.velocity.zero()
-                    witch.velocity = Vector(0,-1, 0)
-                }
-            }
-        }
-        else if(event.newPhase.name == "LAND_ON_PORTAL") {
-            for (player in event.entity.world.players) {
-                if(player.world.name == "world_the_end") {
-                    val witch = player.world.spawnEntity(player.location.add(0.0, 4.0, 0.0), EntityType.SKELETON)
-                    witch.velocity.zero()
-                    witch.velocity = Vector(0,-1, 0)
-                }
-            }
+
         }
     }
 
-    //드래곤
+
     @EventHandler
-    fun onEnderDragonFlame(event: EnderDragonFlameEvent) {
-        val range = 1..3
-        val num = range.random()
-        val scheduler : BukkitScheduler = Bukkit.getScheduler()
+    fun onDragonRespawn(event: EntitySpawnEvent) {
+        if(event.entityType == EntityType.ENDER_DRAGON) {
+            Bukkit.getPluginManager().getPlugin("Faraway")?.config?.set("isDragonDead", false)
+            Bukkit.getPluginManager().getPlugin("Faraway")?.saveConfig()
 
-        Bukkit.broadcast(Component.text("fdas"))
+            (event.entity as LivingEntity).getAttribute(Attribute.GENERIC_MAX_HEALTH)?.baseValue = 500.0
+            (event.entity as LivingEntity).health = 500.0
 
-        if(num == 1) {
+            if(Bukkit.getPluginManager().getPlugin("Faraway")?.config?.getBoolean("isDragonDead")?.equals(null) == true ||
+                Bukkit.getPluginManager().getPlugin("Faraway")?.config?.getBoolean("isDragonDead") != true) {
 
-            event.entity.world.spawnEntity(event.entity.location, EntityType.ZOMBIE)
+                val scheduler = Bukkit.getScheduler()
 
-            Bukkit.getPluginManager().getPlugin("Faraway")?.let { scheduler.scheduleSyncDelayedTask(it, {event.entity.world.spawnEntity(event.entity.location.add(0.0,1.5,0.0), EntityType.ZOMBIE)}, 10L) }
-            Bukkit.getPluginManager().getPlugin("Faraway")?.let { scheduler.scheduleSyncDelayedTask(it, {event.entity.world.spawnEntity(event.entity.location.add(0.0,1.5,0.0), EntityType.ZOMBIE)}, 20L) }
-            Bukkit.getPluginManager().getPlugin("Faraway")?.let { scheduler.scheduleSyncDelayedTask(it, {event.entity.world.spawnEntity(event.entity.location.add(0.0,1.5,0.0), EntityType.ZOMBIE)}, 30L) }
-            Bukkit.getPluginManager().getPlugin("Faraway")?.let { scheduler.scheduleSyncDelayedTask(it, {event.entity.world.spawnEntity(event.entity.location.add(0.0,1.5,0.0), EntityType.ZOMBIE)}, 40L) }
+                Bukkit.getPluginManager().getPlugin("Faraway")?.let {
+                    scheduler.scheduleSyncRepeatingTask(it, {
 
+                        if(Bukkit.getPluginManager().getPlugin("Faraway")?.config?.getBoolean("isDragonDead") == true) {
+                            Bukkit.getPluginManager().getPlugin("Faraway")?.let { it1 -> scheduler.cancelTasks(it1) }
+                        }
 
-        }
-        else if(num == 2) {
-            event.entity.world.spawnEntity(event.entity.location, EntityType.SKELETON)
-            Bukkit.getPluginManager().getPlugin("Faraway")?.let { scheduler.scheduleSyncDelayedTask(it, {event.entity.world.spawnEntity(event.entity.location.add(0.0,1.5,0.0), EntityType.SKELETON)}, 10L) }
-        }
-        else if(num == 3) {
-            event.entity.world.spawnEntity(event.entity.location, EntityType.CREEPER)
-            Bukkit.getPluginManager().getPlugin("Faraway")?.let { scheduler.scheduleSyncDelayedTask(it, {event.entity.world.spawnEntity(event.entity.location.add(0.0,1.5,0.0), EntityType.CREEPER)}, 10L) }
-            Bukkit.getPluginManager().getPlugin("Faraway")?.let { scheduler.scheduleSyncDelayedTask(it, {event.entity.world.spawnEntity(event.entity.location.add(0.0,1.5,0.0), EntityType.CREEPER)}, 20L) }
+                        val range = 1..5
+                        val num = range.random()
+
+                        if(num == 1) {
+                            for (player in Bukkit.getOnlinePlayers()) {
+
+                                if(player.location.world.name == "world_the_end") {
+                                    val fireball = player.world.spawnEntity(player.location.add(0.0,15.0,0.0), EntityType.FIREBALL)
+                                    fireball.velocity.zero()
+                                    fireball.velocity = Vector(0,-2,0)
+
+                                    Bukkit.getPluginManager().getPlugin("Faraway")?.let {
+                                        scheduler.scheduleSyncDelayedTask(it, {
+                                            val fireball = player.world.spawnEntity(player.location.add(0.0,15.0,0.0), EntityType.FIREBALL)
+                                            fireball.velocity.zero()
+                                            fireball.velocity = Vector(0,-2,0)
+                                        },10L)
+                                    }
+
+                                    Bukkit.getPluginManager().getPlugin("Faraway")?.let {
+                                        scheduler.scheduleSyncDelayedTask(it, {
+                                            val fireball = player.world.spawnEntity(player.location.add(0.0,15.0,0.0), EntityType.FIREBALL)
+                                            fireball.velocity.zero()
+                                            fireball.velocity = Vector(0,-2,0)
+                                        },20L)
+                                    }
+
+                                    Bukkit.getPluginManager().getPlugin("Faraway")?.let {
+                                        scheduler.scheduleSyncDelayedTask(it, {
+                                            val dragonFireball = player.world.spawnEntity(player.location.add(0.0,15.0,0.0), EntityType.DRAGON_FIREBALL)
+                                            dragonFireball.velocity.zero()
+                                            dragonFireball.velocity = Vector(0,-2,0)
+                                        },30L)
+                                    }
+                                }
+                            }
+                        }
+
+                        else if(num == 2) {
+                            for (player in Bukkit.getOnlinePlayers()) {
+                                if(player.location.world.name == "world_the_end") {
+                                    player.world.spawnEntity(player.location.add(0.0,5.0,0.0), EntityType.WITCH)
+                                    player.world.spawnEntity(player.location.add(0.0,5.0,0.0), EntityType.WITCH)
+                                }
+                            }
+                        }
+
+                        else if(num == 3) {
+                            for (player in Bukkit.getOnlinePlayers()) {
+                                if(player.location.world.name == "world_the_end") {
+                                    player.world.spawnEntity(player.location.add(0.0,5.0,0.0), EntityType.SKELETON)
+                                    player.world.spawnEntity(player.location.add(0.0,5.0,0.0), EntityType.SKELETON)
+                                    player.world.spawnEntity(player.location.add(0.0,5.0,0.0), EntityType.SKELETON)
+                                }
+                            }
+                        }
+
+                        else if(num == 4) {
+                            for (player in Bukkit.getOnlinePlayers()) {
+
+                                if(player.location.world.name == "world_the_end") {
+                                    val dragonFireball = player.world.spawnEntity(player.location.add(0.0,15.0,0.0), EntityType.DRAGON_FIREBALL)
+                                    dragonFireball.velocity.zero()
+                                    dragonFireball.velocity = Vector(0,-2,0)
+
+                                    Bukkit.getPluginManager().getPlugin("Faraway")?.let {
+                                        scheduler.scheduleSyncDelayedTask(it, {
+                                            val dragonFireball = player.world.spawnEntity(player.location.add(0.0,15.0,0.0), EntityType.DRAGON_FIREBALL)
+                                            dragonFireball.velocity.zero()
+                                            dragonFireball.velocity = Vector(0,-2,0)
+                                        },20L)
+                                    }
+
+                                    Bukkit.getPluginManager().getPlugin("Faraway")?.let {
+                                        scheduler.scheduleSyncDelayedTask(it, {
+                                            val dragonFireball = player.world.spawnEntity(player.location.add(0.0,15.0,0.0), EntityType.DRAGON_FIREBALL)
+                                            dragonFireball.velocity.zero()
+                                            dragonFireball.velocity = Vector(0,-2,0)
+                                        },40L)
+                                    }
+
+                                    Bukkit.getPluginManager().getPlugin("Faraway")?.let {
+                                        scheduler.scheduleSyncDelayedTask(it, {
+                                            val dragonFireball = player.world.spawnEntity(player.location.add(0.0,15.0,0.0), EntityType.DRAGON_FIREBALL)
+                                            dragonFireball.velocity.zero()
+                                            dragonFireball.velocity = Vector(0,-2,0)
+                                        },60L)
+                                    }
+                                }
+                            }
+                        }
+
+                        else if(num == 5) {
+                            for (player in Bukkit.getOnlinePlayers()) {
+                                if(player.location.world.name == "world_the_end") {
+                                    player.world.spawnEntity(player.location.add(0.0,5.0,0.0), EntityType.WITHER_SKELETON)
+                                    player.world.spawnEntity(player.location.add(0.0,5.0,0.0), EntityType.WITHER_SKELETON)
+                                    player.world.spawnEntity(player.location.add(0.0,5.0,0.0), EntityType.WITHER_SKELETON)
+                                }
+                            }
+                        }
+
+                    }, 10L, 200L)
+                }
+
+            }
         }
     }
 }
